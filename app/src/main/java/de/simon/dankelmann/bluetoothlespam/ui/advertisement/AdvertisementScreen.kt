@@ -51,6 +51,8 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.state.ToggleableState
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.airbnb.lottie.compose.LottieCompositionSpec
 import com.airbnb.lottie.compose.LottieConstants
@@ -422,9 +424,19 @@ private fun GroupHeaderRow(
             .padding(horizontal = 8.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        TriStateCheckbox(
-            state = checkedState,
-            onClick = { onGroupCheckedChanged(checkedState != ToggleableState.On) },
+        val groupGlyph = when (checkedState) {
+            ToggleableState.On -> "[x]"
+            ToggleableState.Indeterminate -> "[-]"
+            ToggleableState.Off -> "[ ]"
+        }
+        Text(
+            text = groupGlyph,
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier
+                .clickable { onGroupCheckedChanged(checkedState != ToggleableState.On) }
+                .padding(8.dp)
+                .semantics { contentDescription = "Select all in group" },
         )
         Text(
             text = list.title,
@@ -465,7 +477,14 @@ private fun SetRow(
             .padding(start = 24.dp, top = 4.dp, bottom = 4.dp, end = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Checkbox(checked = set.isChecked, onCheckedChange = onCheckedChanged)
+        Text(
+            text = if (set.isChecked) "[x]" else "[ ]",
+            style = MaterialTheme.typography.bodyLarge,
+            color = if (set.isChecked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier
+                .toggleable(value = set.isChecked, role = Role.Checkbox, onValueChange = onCheckedChanged)
+                .padding(8.dp),
+        )
         Column(
             modifier = Modifier
                 .weight(1f)
