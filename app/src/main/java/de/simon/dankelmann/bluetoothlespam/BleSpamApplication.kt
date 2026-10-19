@@ -1,8 +1,13 @@
 package de.simon.dankelmann.bluetoothlespam
 
 import android.app.Application
+import android.content.ComponentName
+import android.service.quicksettings.TileService
 import android.util.Log
 import de.simon.dankelmann.bluetoothlespam.AppContext.AppContext
+import de.simon.dankelmann.bluetoothlespam.Interfaces.Callbacks.IAdvertisementSetQueueHandlerCallback
+import de.simon.dankelmann.bluetoothlespam.Services.SpamTileService
+import de.simon.dankelmann.bluetoothlespam.Widgets.SpamWidgetProvider
 import de.simon.dankelmann.bluetoothlespam.Database.AppDatabase
 import de.simon.dankelmann.bluetoothlespam.Datastore.SettingsRepository
 import de.simon.dankelmann.bluetoothlespam.Handlers.AdvertisementSetQueueHandler
@@ -49,9 +54,35 @@ class BleSpamApplication : Application() {
         // not just the device wallpaper, and MainActivity is this app's only Activity.
 
         setupAdvertisementService()
+        registerQuickControlCallbacks()
         scanService = BluetoothLeScanService(this)
 
         syncBuiltInSetsIfNeeded()
+    }
+
+    /**
+     * Keep the Quick Settings tile ([SpamTileService]) and the home-screen widget
+     * ([SpamWidgetProvider]) in sync with the advertising state, so their start/stop button always
+     * reflects reality even when it was toggled from the app or the notification.
+     */
+    private fun registerQuickControlCallbacks() {
+        queueHandler.addAdvertisementQueueHandlerCallback(object : IAdvertisementSetQueueHandlerCallback {
+            override fun onQueueHandlerActivated() = refreshQuickControls()
+            override fun onQueueHandlerDeactivated() = refreshQuickControls()
+        })
+    }
+
+    private fun refreshQuickControls() {
+        try {
+            SpamWidgetProvider.requestUpdateAll(this)
+        } catch (e: Exception) {
+            Log.e("BleSpamApplication", "Widget refresh failed", e)
+        }
+        try {
+            TileService.requestListeningState(this, ComponentName(this, SpamTileService::class.java))
+        } catch (e: Exception) {
+            Log.e("BleSpamApplication", "Tile refresh failed", e)
+        }
     }
 
     /**

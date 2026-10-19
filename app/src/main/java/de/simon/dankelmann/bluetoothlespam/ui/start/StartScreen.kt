@@ -8,38 +8,23 @@ import android.os.Handler
 import android.os.Looper
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Cancel
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.ExpandMore
-import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -47,13 +32,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -69,8 +51,12 @@ import de.simon.dankelmann.bluetoothlespam.Helpers.DatabaseHelpers
 import de.simon.dankelmann.bluetoothlespam.PermissionCheck.PermissionCheck
 import de.simon.dankelmann.bluetoothlespam.R
 import de.simon.dankelmann.bluetoothlespam.ui.theme.FloatingNavBarClearance
-import de.simon.dankelmann.bluetoothlespam.ui.theme.SpecterTopAppBarClearance
 import de.simon.dankelmann.bluetoothlespam.ui.theme.LocalExtendedColors
+import de.simon.dankelmann.bluetoothlespam.ui.theme.SpecterTopAppBarClearance
+import de.simon.dankelmann.bluetoothlespam.ui.theme.TerminalButton
+import de.simon.dankelmann.bluetoothlespam.ui.theme.TerminalKeyValue
+import de.simon.dankelmann.bluetoothlespam.ui.theme.TerminalPanel
+import de.simon.dankelmann.bluetoothlespam.ui.theme.crtScanlines
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -277,10 +263,11 @@ private fun requestRequiredPermissions(activity: Activity) {
     PermissionCheck.requestMissingPermissions(PermissionCheck.getAllRelevantPermissions(), activity)
 }
 
-/**
- * Core migration of `StartFragment`'s content (plan §5/§5a/§5b), plus the Quick Start section
- * (plan §8, T6b).
- */
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+// UI — amber-CRT terminal redesign. All business logic stays in StartRoute / the helpers above;
+// these composables only present the same state.
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+
 @Composable
 fun StartScreen(
     viewModel: StartViewModel,
@@ -304,7 +291,7 @@ fun StartScreen(
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        // Clearances keep the first/last card clear of the floating title bar and nav pill.
+        // Clearances keep the first/last panel clear of the floating title bar and nav pill.
         contentPadding = PaddingValues(
             start = 16.dp,
             end = 16.dp,
@@ -313,12 +300,16 @@ fun StartScreen(
         ),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
+        item { BannerPanel(appVersion = appVersion ?: "-") }
+
         if (allPermissionsGranted == false) {
-            item { PermissionRationaleCard(onGrantPermissions = onGrantPermissions) }
+            item { PermissionRationalePanel(onGrantPermissions = onGrantPermissions) }
         }
 
+        item { AboutPanel() }
+
         item {
-            SystemInfoCard(
+            SystemInfoPanel(
                 appVersion = appVersion,
                 androidVersion = androidVersion ?: "-",
                 sdkVersion = sdkVersion ?: "-",
@@ -329,7 +320,7 @@ fun StartScreen(
         }
 
         item {
-            QuickStartSection(
+            QuickStartPanel(
                 quickStartCollections = quickStartCollections,
                 onItemClicked = onQuickStartItemClicked,
                 onEditClicked = onEditQuickStartClicked,
@@ -337,7 +328,7 @@ fun StartScreen(
         }
 
         item {
-            RequirementsCard(
+            RequirementsPanel(
                 missingRequirements = missingRequirements ?: emptyList(),
                 permissionsStatus = requirementStatus(allPermissionsGranted),
                 bluetoothStatus = requirementStatus(bluetoothAdapterIsReady),
@@ -351,44 +342,65 @@ fun StartScreen(
 }
 
 @Composable
-private fun PermissionRationaleCard(onGrantPermissions: () -> Unit) {
-    val extendedColors = LocalExtendedColors.current
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = extendedColors.warning),
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = Icons.Filled.Warning,
-                    contentDescription = null,
-                    tint = extendedColors.onWarning,
-                )
-                Text(
-                    text = stringResource(R.string.missing_permissions_title),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = extendedColors.onWarning,
-                    modifier = Modifier.padding(start = 8.dp),
-                )
-            }
-            Text(
-                text = stringResource(R.string.missing_permissions_text),
-                style = MaterialTheme.typography.bodyMedium,
-                color = extendedColors.onWarning,
-                modifier = Modifier.padding(top = 8.dp),
-            )
-            Button(
-                onClick = onGrantPermissions,
-                modifier = Modifier.padding(top = 12.dp),
-            ) {
-                Text(stringResource(R.string.missing_permissions_grant))
-            }
-        }
+private fun BannerPanel(appVersion: String) {
+    val cs = MaterialTheme.colorScheme
+    TerminalPanel(modifier = Modifier.crtScanlines()) {
+        Text(
+            text = "BLUETOOTH::LE::SPAM",
+            style = MaterialTheme.typography.titleLarge,
+            color = cs.primary,
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text = "root@ble-spam:~# ./specter --version $appVersion",
+            style = MaterialTheme.typography.bodySmall,
+            color = cs.onSurfaceVariant,
+        )
+        Text(
+            text = "BLE advertisement toolkit · proof-of-concept",
+            style = MaterialTheme.typography.bodySmall,
+            color = cs.onSurfaceVariant,
+        )
     }
 }
 
 @Composable
-private fun SystemInfoCard(
+private fun AboutPanel() {
+    val cs = MaterialTheme.colorScheme
+    TerminalPanel(title = "readme") {
+        Text(
+            text = "Broadcasts Bluetooth Low Energy advertisements that nearby devices may react " +
+                "to with pairing pop-ups or setup prompts. Built to study the BLE protocol and to " +
+                "test the built-in Spam Detector.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = cs.onSurface,
+        )
+        Spacer(Modifier.height(8.dp))
+        Text(
+            text = "[!] Only target devices you own or are authorised to test. Broadcasting at " +
+                "strangers' devices may be illegal where you live.",
+            style = MaterialTheme.typography.bodySmall,
+            color = cs.error,
+        )
+    }
+}
+
+@Composable
+private fun PermissionRationalePanel(onGrantPermissions: () -> Unit) {
+    val cs = MaterialTheme.colorScheme
+    TerminalPanel(title = "permissions required", accent = true) {
+        Text(
+            text = stringResource(R.string.missing_permissions_text),
+            style = MaterialTheme.typography.bodyMedium,
+            color = cs.onSurface,
+        )
+        Spacer(Modifier.height(12.dp))
+        TerminalButton(text = "> GRANT ACCESS", onClick = onGrantPermissions)
+    }
+}
+
+@Composable
+private fun SystemInfoPanel(
     appVersion: String?,
     androidVersion: String,
     sdkVersion: String,
@@ -396,128 +408,53 @@ private fun SystemInfoCard(
     databaseIsReady: Boolean,
     isSeeding: Boolean,
 ) {
-    val expandedSections = remember { mutableStateMapOf("Device Info" to false, "App Info" to false) }
-
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = stringResource(R.string.app_name),
-                style = MaterialTheme.typography.titleLarge,
-            )
-
-            ExpandableSection(
-                title = "Device Info",
-                expanded = expandedSections["Device Info"] == true,
-                onToggle = { expandedSections["Device Info"] = expandedSections["Device Info"] != true },
-            ) {
-                InfoRow("Android Version", androidVersion)
-                InfoRow("SDK Version", sdkVersion)
-                InfoRow("Bluetooth", bluetoothSupport)
-            }
-
-            ExpandableSection(
-                title = "App Info",
-                expanded = expandedSections["App Info"] == true,
-                onToggle = { expandedSections["App Info"] = expandedSections["App Info"] != true },
-            ) {
-                InfoRow("App Version", appVersion ?: "-")
-                InfoRow("Database", if (isSeeding) "Seeding…" else if (databaseIsReady) "Ready" else "Not ready")
-            }
-        }
+    TerminalPanel(title = "system") {
+        TerminalKeyValue("android", androidVersion)
+        TerminalKeyValue("sdk", sdkVersion)
+        TerminalKeyValue("bluetooth", bluetoothSupport)
+        TerminalKeyValue("app", appVersion ?: "-")
+        TerminalKeyValue(
+            key = "database",
+            value = if (isSeeding) "seeding…" else if (databaseIsReady) "ready" else "not ready",
+        )
     }
 }
 
 @Composable
-private fun ExpandableSection(
-    title: String,
-    expanded: Boolean,
-    onToggle: () -> Unit,
-    content: @Composable () -> Unit,
-) {
-    val rotation by animateFloatAsState(targetValue = if (expanded) 180f else 0f, label = "chevron")
-
-    Column(modifier = Modifier.padding(top = 8.dp)) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable(onClick = onToggle)
-                .semantics {
-                    stateDescription = if (expanded) "Expanded" else "Collapsed"
-                }
-                .padding(vertical = 8.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(text = title, style = MaterialTheme.typography.titleSmall)
-            Icon(
-                imageVector = Icons.Filled.ExpandMore,
-                contentDescription = null,
-                modifier = Modifier.rotate(rotation),
-            )
-        }
-        AnimatedVisibility(visible = expanded) {
-            Column { content() }
-        }
-    }
-}
-
-@Composable
-private fun InfoRow(label: String, value: String) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 2.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-    ) {
-        Text(text = label, style = MaterialTheme.typography.bodyMedium)
-        Text(text = value, style = MaterialTheme.typography.bodyMedium)
-    }
-}
-
-@Composable
-private fun QuickStartSection(
+private fun QuickStartPanel(
     quickStartCollections: List<AdvertisementSetCollectionEntity>,
     onItemClicked: (AdvertisementSetCollectionEntity) -> Unit,
     onEditClicked: () -> Unit,
 ) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(text = "Quick Start", style = MaterialTheme.typography.titleMedium)
-                IconButton(onClick = onEditClicked, modifier = Modifier.size(48.dp)) {
-                    Icon(imageVector = Icons.Filled.Edit, contentDescription = "Manage Quick Start")
-                }
-            }
-
-            if (quickStartCollections.isEmpty()) {
-                Text(
-                    text = "No Quick Start groups yet — tap the pencil to add some",
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(top = 4.dp),
-                )
-            } else {
-                quickStartCollections.forEach { collection ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { onItemClicked(collection) }
-                            .padding(vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(text = collection.title, style = MaterialTheme.typography.bodyLarge)
-                    }
+    val cs = MaterialTheme.colorScheme
+    TerminalPanel(title = "quick_start") {
+        if (quickStartCollections.isEmpty()) {
+            Text(
+                text = "— no pinned groups. tap edit to add some —",
+                style = MaterialTheme.typography.bodyMedium,
+                color = cs.onSurfaceVariant,
+            )
+        } else {
+            quickStartCollections.forEach { collection ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onItemClicked(collection) }
+                        .padding(vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(text = "> ", style = MaterialTheme.typography.bodyLarge, color = cs.primary)
+                    Text(text = collection.title, style = MaterialTheme.typography.bodyLarge, color = cs.onSurface)
                 }
             }
         }
+        Spacer(Modifier.height(8.dp))
+        TerminalButton(text = "> EDIT", onClick = onEditClicked)
     }
 }
 
 @Composable
-private fun RequirementsCard(
+private fun RequirementsPanel(
     missingRequirements: List<String>,
     permissionsStatus: RequirementStatus,
     bluetoothStatus: RequirementStatus,
@@ -526,46 +463,20 @@ private fun RequirementsCard(
     onRecheckBluetooth: () -> Unit,
     onRecheckDatabase: () -> Unit,
 ) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(text = "Requirements", style = MaterialTheme.typography.titleMedium)
-            if (missingRequirements.isNotEmpty()) {
-                Text(
-                    text = "Missing Requirements:",
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(top = 4.dp),
-                )
-                missingRequirements.forEach { requirement ->
-                    Text(
-                        text = requirement,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = LocalExtendedColors.current.warning,
-                        modifier = Modifier.padding(top = 2.dp),
-                    )
-                }
-            }
+    val cs = MaterialTheme.colorScheme
+    TerminalPanel(title = "preflight") {
+        StatusRow(label = "permissions", status = permissionsStatus, onClick = onRecheckPermissions)
+        StatusRow(label = "bluetooth_adapter", status = bluetoothStatus, onClick = onRecheckBluetooth)
+        StatusRow(label = "database", status = databaseStatus, onClick = onRecheckDatabase)
 
-            Column(
-                modifier = Modifier.padding(top = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                StatusRow(
-                    label = "Permissions",
-                    iconRes = R.drawable.key_24,
-                    status = permissionsStatus,
-                    onClick = onRecheckPermissions,
-                )
-                StatusRow(
-                    label = "Bluetooth Adapter",
-                    iconRes = R.drawable.bluetooth,
-                    status = bluetoothStatus,
-                    onClick = onRecheckBluetooth,
-                )
-                StatusRow(
-                    label = "Database",
-                    iconRes = R.drawable.data_array,
-                    status = databaseStatus,
-                    onClick = onRecheckDatabase,
+        if (missingRequirements.isNotEmpty()) {
+            Spacer(Modifier.height(8.dp))
+            missingRequirements.forEach { requirement ->
+                Text(
+                    text = "  ! $requirement",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = cs.error,
+                    modifier = Modifier.padding(top = 2.dp),
                 )
             }
         }
@@ -584,60 +495,32 @@ private fun requirementStatus(isReady: Boolean?) = when (isReady) {
 @Composable
 private fun StatusRow(
     label: String,
-    iconRes: Int,
     status: RequirementStatus,
     onClick: () -> Unit,
 ) {
-    val colors = MaterialTheme.colorScheme
-    val (background, onColor) = when (status) {
-        RequirementStatus.Ready -> colors.primary to colors.onPrimary
-        RequirementStatus.NotReady -> colors.primaryContainer to colors.onPrimaryContainer
-        RequirementStatus.Loading -> colors.surfaceVariant to colors.onSurfaceVariant
+    val cs = MaterialTheme.colorScheme
+    val extended = LocalExtendedColors.current
+    val (tag, tagColor) = when (status) {
+        RequirementStatus.Ready -> "[ OK ]" to extended.success
+        RequirementStatus.NotReady -> "[FAIL]" to cs.error
+        RequirementStatus.Loading -> "[....]" to cs.onSurfaceVariant
     }
     val stateText = when (status) {
         RequirementStatus.Ready -> "OK"
-        RequirementStatus.NotReady -> "Needs attention"
-        RequirementStatus.Loading -> "Checking"
+        RequirementStatus.NotReady -> "needs attention"
+        RequirementStatus.Loading -> "checking"
     }
 
-    Card(
-        onClick = onClick,
+    Row(
         modifier = Modifier
             .fillMaxWidth()
-            .semantics { contentDescription = "$label: $stateText" },
-        colors = CardDefaults.cardColors(containerColor = background),
-        shape = RoundedCornerShape(12.dp),
+            .clickable(onClick = onClick)
+            .semantics { contentDescription = "$label: $stateText" }
+            .padding(vertical = 6.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(
-                painter = painterResource(iconRes),
-                contentDescription = null,
-                tint = onColor,
-                modifier = Modifier.size(28.dp),
-            )
-            Text(
-                text = label,
-                style = MaterialTheme.typography.titleMedium,
-                color = onColor,
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(start = 16.dp),
-            )
-            if (status == RequirementStatus.Loading) {
-                CircularProgressIndicator(color = onColor, strokeWidth = 2.5.dp, modifier = Modifier.size(20.dp))
-            } else {
-                Icon(
-                    imageVector = if (status == RequirementStatus.Ready) Icons.Filled.CheckCircle else Icons.Filled.Cancel,
-                    contentDescription = null,
-                    tint = onColor,
-                    modifier = Modifier.size(24.dp),
-                )
-            }
-        }
+        Text(text = label, style = MaterialTheme.typography.bodyMedium, color = cs.onSurface)
+        Text(text = tag, style = MaterialTheme.typography.labelLarge, color = tagColor)
     }
 }

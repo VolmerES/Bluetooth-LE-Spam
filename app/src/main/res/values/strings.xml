@@ -93,4 +93,9 @@
     <string name="missing_permissions_text">Some permissions are missing. Without them, Bluetooth LE Spam will not work properly.</string>
     <string name="missing_permissions_grant">Grant Permissions</string>
 
+
+    <!-- Quick Settings tile / home-screen widget (start/stop advertising). -->
+    <string name="widget_spam_label">BLE Spam</string>
+    <string name="widget_spam_on">ON</string>
+    <string name="widget_spam_off">OFF</string>
 </resources>
