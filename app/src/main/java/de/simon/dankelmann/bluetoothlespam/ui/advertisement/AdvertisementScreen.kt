@@ -418,7 +418,8 @@ private fun GroupHeaderRow(
             .fillMaxWidth()
             .clickable(onClick = onToggleExpanded)
             .semantics { stateDescription = if (expanded) "Expanded" else "Collapsed" }
-            .padding(vertical = 8.dp),
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+            .padding(horizontal = 8.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         TriStateCheckbox(

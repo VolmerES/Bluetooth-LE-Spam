@@ -81,8 +81,8 @@ fun FloatingNavBar(
     blurEnabled: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    // Same stadium shape as each item; equal inner padding keeps outer radius = item radius + padding.
-    val pillShape = RoundedCornerShape(50)
+    // Sharp, boxy terminal shape (was a stadium pill) to match the amber-CRT identity.
+    val pillShape = SpecterShapes.medium
     val navBarInnerPadding = 6.dp
     val hazeStyle = HazeMaterials.thin()
     var hazeRenderFailed = false
@@ -165,7 +165,7 @@ private fun FloatingNavItem(
     // No animateContentSize: it races AnimatedVisibility's width animation and clips the pill.
     Surface(
         onClick = onClick,
-        shape = RoundedCornerShape(50),
+        shape = SpecterShapes.small,
         color = containerColor,
         contentColor = contentColor,
     ) {
