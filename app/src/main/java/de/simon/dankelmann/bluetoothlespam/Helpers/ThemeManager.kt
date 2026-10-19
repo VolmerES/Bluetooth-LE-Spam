@@ -80,7 +80,9 @@ class ThemeManager private constructor() {
     }
 
     fun isDynamicColorEnabled(context: Context): Boolean {
-        return SettingsRepository.getInstance(context).current[SettingsKeys.DYNAMIC_COLOR_ENABLED] ?: true
+        // Default OFF so the amber-CRT identity (see ui/theme/Color.kt) is what ships out of the
+        // box; users can still opt into Material You dynamic color from Settings.
+        return SettingsRepository.getInstance(context).current[SettingsKeys.DYNAMIC_COLOR_ENABLED] ?: false
     }
 
     fun setDynamicColorEnabled(context: Context, enabled: Boolean) {

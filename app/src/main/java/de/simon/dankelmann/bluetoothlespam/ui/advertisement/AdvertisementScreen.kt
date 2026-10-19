@@ -67,9 +67,16 @@ import de.simon.dankelmann.bluetoothlespam.Models.AdvertisementSet
 import de.simon.dankelmann.bluetoothlespam.Models.AdvertisementSetList
 import de.simon.dankelmann.bluetoothlespam.R
 import de.simon.dankelmann.bluetoothlespam.ui.theme.LocalExtendedColors
+import de.simon.dankelmann.bluetoothlespam.ui.theme.SpecterShapes
 import de.simon.dankelmann.bluetoothlespam.ui.theme.SpecterTopAppBarClearance
 import de.simon.dankelmann.bluetoothlespam.ui.theme.StatusBadge
 import de.simon.dankelmann.bluetoothlespam.ui.theme.StatusTone
+import de.simon.dankelmann.bluetoothlespam.ui.theme.TerminalKeyValue
+import de.simon.dankelmann.bluetoothlespam.ui.theme.TerminalPanel
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.graphics.vector.ImageVector
 
 /**
  * Core migration of `AdvertisementFragment`'s content (plan §5/§5a) — flattened `LazyColumn`
@@ -129,6 +136,8 @@ fun AdvertisementScreen(
             currentSetTitle = currentSetTitle,
             currentSetSubtitle = currentSetSubtitle,
             queueMode = queueMode,
+            armedCount = advertisementSetLists.sumOf { list -> list.advertisementSets.count { it.isChecked } },
+            totalCount = advertisementSetLists.sumOf { it.advertisementSets.size },
             onPlayClicked = onPlayClicked,
             onQueueModeSelected = onQueueModeSelected,
         )
@@ -202,6 +211,8 @@ private fun HeaderSection(
     currentSetTitle: String,
     currentSetSubtitle: String,
     queueMode: AdvertisementQueueMode,
+    armedCount: Int,
+    totalCount: Int,
     onPlayClicked: () -> Unit,
     onQueueModeSelected: (AdvertisementQueueMode) -> Unit,
 ) {
@@ -211,95 +222,167 @@ private fun HeaderSection(
         iterations = LottieConstants.IterateForever,
         isPlaying = isAdvertising,
     )
+    val cs = MaterialTheme.colorScheme
+    val extended = LocalExtendedColors.current
 
     Column(modifier = Modifier.padding(16.dp)) {
-        if (isAdvertising) {
-            StatusBadge(
-                label = "Advertising",
-                tone = StatusTone.WARNING,
-                modifier = Modifier.padding(bottom = 8.dp),
+        TerminalPanel(title = "transmitter", accent = isAdvertising) {
+            LottieAnimation(
+                composition = composition,
+                progress = { progress },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(84.dp),
             )
-        }
 
-        LottieAnimation(
-            composition = composition,
-            progress = { progress },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(100.dp),
-        )
-
-        Text(text = collectionTitle, style = MaterialTheme.typography.titleLarge)
-        Text(text = collectionSubtitle, style = MaterialTheme.typography.bodyMedium)
-        if (collectionHint == "-") {
-            PlaceholderBox(modifier = Modifier.padding(top = 4.dp))
-        } else {
-            Text(text = collectionHint, style = MaterialTheme.typography.bodySmall)
-        }
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            Row {
-                IconButton(onClick = { onQueueModeSelected(AdvertisementQueueMode.ADVERTISEMENT_QUEUE_MODE_LINEAR) }) {
-                    Icon(
-                        imageVector = Icons.Filled.Repeat,
-                        contentDescription = "Linear queue mode",
-                        tint = if (queueMode == AdvertisementQueueMode.ADVERTISEMENT_QUEUE_MODE_LINEAR) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        },
-                    )
-                }
-                IconButton(onClick = { onQueueModeSelected(AdvertisementQueueMode.ADVERTISEMENT_QUEUE_MODE_RANDOM) }) {
-                    Icon(
-                        imageVector = Icons.Filled.Shuffle,
-                        contentDescription = "Random queue mode",
-                        tint = if (queueMode == AdvertisementQueueMode.ADVERTISEMENT_QUEUE_MODE_RANDOM) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        },
-                    )
-                }
-            }
-
-            FilledIconButton(onClick = onPlayClicked) {
-                Icon(
-                    imageVector = if (isAdvertising) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                    contentDescription = if (isAdvertising) "Stop advertising" else "Start advertising",
+            // Live status line — unmistakable idle/broadcasting readout.
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(text = "status", style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant)
+                Text(
+                    text = if (isAdvertising) "● BROADCASTING" else "○ IDLE",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = if (isAdvertising) extended.success else cs.onSurfaceVariant,
                 )
             }
-        }
 
+            Spacer(Modifier.height(8.dp))
+            Text(text = collectionTitle, style = MaterialTheme.typography.titleMedium, color = cs.primary)
+            if (collectionSubtitle != "-") {
+                Text(text = collectionSubtitle, style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
+            }
+            if (collectionHint != "-") {
+                Text(text = collectionHint, style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
+            }
+
+            Spacer(Modifier.height(8.dp))
+            // Current set, with the target icon so it's clear what's being broadcast.
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 2.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    painter = painterResource(target.getDrawableId()),
+                    contentDescription = null,
+                    tint = cs.primary,
+                    modifier = Modifier.size(18.dp),
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = "current",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = cs.onSurfaceVariant,
+                    modifier = Modifier.weight(1f),
+                )
+                Text(
+                    text = if (currentSetTitle == "-") "—" else currentSetTitle,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = cs.onSurface,
+                )
+            }
+            if (currentSetSubtitle != "-") {
+                TerminalKeyValue(key = "detail", value = currentSetSubtitle)
+            }
+            TerminalKeyValue(
+                key = "armed",
+                value = "$armedCount / $totalCount",
+                valueColor = if (armedCount > 0) extended.success else cs.onSurfaceVariant,
+            )
+
+            Spacer(Modifier.height(12.dp))
+            // Queue mode, labeled so each option is self-explanatory.
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(text = "mode:", style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant)
+                ModeChip(
+                    label = "LINEAR",
+                    icon = Icons.Filled.Repeat,
+                    selected = queueMode == AdvertisementQueueMode.ADVERTISEMENT_QUEUE_MODE_LINEAR,
+                    onClick = { onQueueModeSelected(AdvertisementQueueMode.ADVERTISEMENT_QUEUE_MODE_LINEAR) },
+                )
+                ModeChip(
+                    label = "RANDOM",
+                    icon = Icons.Filled.Shuffle,
+                    selected = queueMode == AdvertisementQueueMode.ADVERTISEMENT_QUEUE_MODE_RANDOM,
+                    onClick = { onQueueModeSelected(AdvertisementQueueMode.ADVERTISEMENT_QUEUE_MODE_RANDOM) },
+                )
+            }
+
+            Spacer(Modifier.height(12.dp))
+            // Primary action — big and unambiguous.
+            BigActionButton(isAdvertising = isAdvertising, onClick = onPlayClicked)
+        }
+    }
+}
+
+/** Labeled, selectable queue-mode chip. */
+@Composable
+private fun ModeChip(
+    label: String,
+    icon: ImageVector,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    val cs = MaterialTheme.colorScheme
+    Surface(
+        onClick = onClick,
+        shape = SpecterShapes.small,
+        color = if (selected) cs.primary else cs.surfaceContainerHigh,
+        contentColor = if (selected) cs.onPrimary else cs.onSurfaceVariant,
+        modifier = Modifier.border(1.dp, if (selected) cs.primary else cs.outline, SpecterShapes.small),
+    ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 8.dp),
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(imageVector = icon, contentDescription = null, modifier = Modifier.size(16.dp))
+            Spacer(Modifier.width(4.dp))
+            Text(text = label, style = MaterialTheme.typography.labelLarge)
+        }
+    }
+}
+
+/** Full-width start/stop action; red while broadcasting, amber when idle. */
+@Composable
+private fun BigActionButton(isAdvertising: Boolean, onClick: () -> Unit) {
+    val cs = MaterialTheme.colorScheme
+    val container = if (isAdvertising) cs.error else cs.primary
+    val onContainer = if (isAdvertising) cs.onError else cs.onPrimary
+    Surface(
+        onClick = onClick,
+        shape = SpecterShapes.small,
+        color = container,
+        contentColor = onContainer,
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(1.dp, container, SpecterShapes.small)
+            .semantics { contentDescription = if (isAdvertising) "Stop advertising" else "Start advertising" },
+    ) {
+        Row(
+            modifier = Modifier.padding(vertical = 14.dp),
+            horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
-                painter = painterResource(target.getDrawableId()),
+                imageVector = if (isAdvertising) Icons.Filled.Pause else Icons.Filled.PlayArrow,
                 contentDescription = null,
-                modifier = Modifier.size(32.dp),
+                modifier = Modifier.size(22.dp),
             )
-            Column(modifier = Modifier.padding(start = 12.dp)) {
-                if (currentSetTitle == "-") {
-                    PlaceholderBox()
-                } else {
-                    Text(text = currentSetTitle, style = MaterialTheme.typography.titleSmall)
-                }
-                if (currentSetSubtitle == "-") {
-                    PlaceholderBox(modifier = Modifier.padding(top = 4.dp))
-                } else {
-                    Text(text = currentSetSubtitle, style = MaterialTheme.typography.bodySmall)
-                }
-            }
+            Spacer(Modifier.width(8.dp))
+            Text(
+                text = if (isAdvertising) "STOP BROADCAST" else "START BROADCAST",
+                style = MaterialTheme.typography.titleSmall,
+            )
         }
     }
 }
@@ -335,7 +418,8 @@ private fun GroupHeaderRow(
             .fillMaxWidth()
             .clickable(onClick = onToggleExpanded)
             .semantics { stateDescription = if (expanded) "Expanded" else "Collapsed" }
-            .padding(vertical = 8.dp),
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+            .padding(horizontal = 8.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         TriStateCheckbox(

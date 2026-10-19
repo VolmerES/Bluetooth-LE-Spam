@@ -1,30 +1,34 @@
 package de.simon.dankelmann.bluetoothlespam.ui.spamDetector
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material3.Card
-import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.airbnb.lottie.compose.LottieAnimation
 import com.airbnb.lottie.compose.LottieCompositionSpec
@@ -37,11 +41,16 @@ import de.simon.dankelmann.bluetoothlespam.Models.FlipperDeviceScanResult
 import de.simon.dankelmann.bluetoothlespam.Models.SpamPackageScanResult
 import de.simon.dankelmann.bluetoothlespam.R
 import de.simon.dankelmann.bluetoothlespam.ui.theme.FloatingNavBarClearance
+import de.simon.dankelmann.bluetoothlespam.ui.theme.LocalExtendedColors
+import de.simon.dankelmann.bluetoothlespam.ui.theme.SpecterShapes
 import de.simon.dankelmann.bluetoothlespam.ui.theme.SpecterTopAppBarClearance
+import de.simon.dankelmann.bluetoothlespam.ui.theme.TerminalKeyValue
+import de.simon.dankelmann.bluetoothlespam.ui.theme.TerminalPanel
 
 /**
  * Core migration of `SpamDetectorFragment`'s content (plan §5/§5a/§5b) — single LazyColumn with
  * two named item groups (detected devices, spam packages) replacing the RecyclerView split.
+ * Restyled to the amber-CRT terminal look.
  */
 @Composable
 fun SpamDetectorScreen(
@@ -53,8 +62,7 @@ fun SpamDetectorScreen(
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         // Top/bottom padding include SpecterTopAppBarClearance/FloatingNavBarClearance so the
-        // first/last card scrolls clear of the floating title bar and nav pill instead of
-        // staying stuck underneath either one.
+        // first/last panel scrolls clear of the floating title bar and nav pill.
         contentPadding = PaddingValues(
             start = 16.dp,
             end = 16.dp,
@@ -64,11 +72,11 @@ fun SpamDetectorScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item {
-            HeaderCard(isDetecting = isDetecting, onToggleClicked = onToggleClicked)
+            HeaderPanel(isDetecting = isDetecting, onToggleClicked = onToggleClicked)
         }
 
         item {
-            SectionHeader("Detected Devices", flipperDevices.size)
+            SectionHeader("detected_devices", flipperDevices.size)
         }
         if (flipperDevices.isEmpty()) {
             item { EmptyListMessage(isDetecting = isDetecting) }
@@ -79,7 +87,7 @@ fun SpamDetectorScreen(
         }
 
         item {
-            SectionHeader("Spam Packages", spamPackages.size)
+            SectionHeader("spam_packages", spamPackages.size)
         }
         if (spamPackages.isEmpty()) {
             item { EmptyListMessage(isDetecting = isDetecting) }
@@ -92,73 +100,116 @@ fun SpamDetectorScreen(
 }
 
 @Composable
-private fun HeaderCard(isDetecting: Boolean, onToggleClicked: () -> Unit) {
+private fun HeaderPanel(isDetecting: Boolean, onToggleClicked: () -> Unit) {
     val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(R.raw.detect))
     val progress by animateLottieCompositionAsState(
         composition = composition,
         iterations = LottieConstants.IterateForever,
         isPlaying = isDetecting,
     )
+    val cs = MaterialTheme.colorScheme
+    val extended = LocalExtendedColors.current
 
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            LottieAnimation(
-                composition = composition,
-                progress = { progress },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(120.dp),
+    TerminalPanel(title = "detector", accent = isDetecting) {
+        LottieAnimation(
+            composition = composition,
+            progress = { progress },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(96.dp),
+        )
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 4.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(text = "status", style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant)
+            Text(
+                text = if (isDetecting) "● SCANNING" else "○ IDLE",
+                style = MaterialTheme.typography.labelLarge,
+                color = if (isDetecting) extended.success else cs.onSurfaceVariant,
             )
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(text = "Spam Detector", style = MaterialTheme.typography.titleLarge)
-                    Text(
-                        text = "Detect Flippers and other BLE Spamming Devices",
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                }
-                FilledIconButton(onClick = onToggleClicked) {
-                    Icon(
-                        imageVector = if (isDetecting) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                        contentDescription = if (isDetecting) "Stop scanning" else "Start scanning",
-                    )
-                }
-            }
+        }
+
+        Spacer(Modifier.height(8.dp))
+        Text(
+            text = "Detects Flipper Zero and other BLE spamming devices nearby — including spam sent " +
+                "by this app.",
+            style = MaterialTheme.typography.bodySmall,
+            color = cs.onSurfaceVariant,
+        )
+
+        Spacer(Modifier.height(12.dp))
+        ScanToggleButton(isDetecting = isDetecting, onClick = onToggleClicked)
+    }
+}
+
+/** Full-width start/stop scan action. */
+@Composable
+private fun ScanToggleButton(isDetecting: Boolean, onClick: () -> Unit) {
+    val cs = MaterialTheme.colorScheme
+    Surface(
+        onClick = onClick,
+        shape = SpecterShapes.small,
+        color = if (isDetecting) cs.surfaceContainerHigh else cs.primary,
+        contentColor = if (isDetecting) cs.primary else cs.onPrimary,
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(1.dp, cs.primary, SpecterShapes.small)
+            .semantics { contentDescription = if (isDetecting) "Stop scanning" else "Start scanning" },
+    ) {
+        Row(
+            modifier = Modifier.padding(vertical = 14.dp),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                imageVector = if (isDetecting) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                contentDescription = null,
+                modifier = Modifier.size(22.dp),
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(
+                text = if (isDetecting) "STOP SCAN" else "START SCAN",
+                style = MaterialTheme.typography.titleSmall,
+            )
         }
     }
 }
 
 @Composable
 private fun SectionHeader(title: String, count: Int) {
+    val cs = MaterialTheme.colorScheme
     Text(
-        text = "$title ($count)",
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        style = MaterialTheme.typography.titleMedium,
+        text = "> ${title.uppercase()} [$count]",
+        color = cs.primary,
+        style = MaterialTheme.typography.labelLarge,
         modifier = Modifier
             .fillMaxWidth()
-            .background(color = MaterialTheme.colorScheme.surfaceVariant, shape = RoundedCornerShape(8.dp))
+            .background(color = cs.surfaceContainerHigh, shape = SpecterShapes.medium)
+            .border(1.dp, cs.outline, SpecterShapes.medium)
             .padding(horizontal = 12.dp, vertical = 8.dp),
     )
 }
 
 @Composable
 private fun EmptyListMessage(isDetecting: Boolean) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+    val cs = MaterialTheme.colorScheme
+    TerminalPanel {
         Text(
-            text = if (isDetecting) "No devices found yet" else "Start scanning to detect devices",
+            text = if (isDetecting) "scanning… no hits yet" else "press START SCAN to begin",
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(12.dp),
+            color = cs.onSurfaceVariant,
         )
     }
 }
 
 @Composable
 private fun FlipperDeviceRow(device: FlipperDeviceScanResult) {
+    val cs = MaterialTheme.colorScheme
     val deviceTypeLabel = when (device.flipperDeviceType) {
         FlipperDeviceType.FLIPPER_ZERO_WHITE -> "Flipper Zero White"
         FlipperDeviceType.FLIPPER_ZERO_BLACK -> "Flipper Zero Black"
@@ -166,17 +217,21 @@ private fun FlipperDeviceRow(device: FlipperDeviceScanResult) {
         FlipperDeviceType.UNKNOWN -> "Unknown Flipper Zero"
     }
 
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            Text(text = device.deviceName.ifEmpty { deviceTypeLabel }, style = MaterialTheme.typography.titleSmall)
-            Text(text = device.address, style = MaterialTheme.typography.bodySmall)
-            Text(text = "${device.rssi} dBm · $deviceTypeLabel", style = MaterialTheme.typography.bodySmall)
-        }
+    TerminalPanel {
+        Text(
+            text = device.deviceName.ifEmpty { deviceTypeLabel },
+            style = MaterialTheme.typography.titleSmall,
+            color = cs.primary,
+        )
+        TerminalKeyValue(key = "addr", value = device.address)
+        TerminalKeyValue(key = "rssi", value = "${device.rssi} dBm")
+        TerminalKeyValue(key = "type", value = deviceTypeLabel)
     }
 }
 
 @Composable
 private fun SpamPackageRow(spamPackage: SpamPackageScanResult) {
+    val cs = MaterialTheme.colorScheme
     val label = when (spamPackage.spamPackageType) {
         SpamPackageType.UNKNOWN -> "Unknown Spam"
         SpamPackageType.FAST_PAIRING -> "Fast Pairing"
@@ -192,24 +247,19 @@ private fun SpamPackageRow(spamPackage: SpamPackageScanResult) {
         SpamPackageType.LOVESPOUSE_STOP -> "Lovespouse Stop"
     }
 
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
+    TerminalPanel {
+        Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(
-                painter = androidx.compose.ui.res.painterResource(spamPackage.spamPackageType.iconRes()),
+                painter = painterResource(spamPackage.spamPackageType.iconRes()),
                 contentDescription = null,
-                modifier = Modifier.size(32.dp),
+                tint = cs.primary,
+                modifier = Modifier.size(22.dp),
             )
-            Column(modifier = Modifier.padding(start = 12.dp)) {
-                Text(text = label, style = MaterialTheme.typography.titleSmall)
-                Text(text = spamPackage.address, style = MaterialTheme.typography.bodySmall)
-                Text(text = "${spamPackage.rssi} dBm", style = MaterialTheme.typography.bodySmall)
-            }
+            Spacer(Modifier.width(8.dp))
+            Text(text = label, style = MaterialTheme.typography.titleSmall, color = cs.primary)
         }
+        TerminalKeyValue(key = "addr", value = spamPackage.address)
+        TerminalKeyValue(key = "rssi", value = "${spamPackage.rssi} dBm")
     }
 }
 
