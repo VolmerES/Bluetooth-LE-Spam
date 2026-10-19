@@ -28,9 +28,13 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import de.simon.dankelmann.bluetoothlespam.R
 import de.simon.dankelmann.bluetoothlespam.ui.theme.FloatingNavBarClearance
+import de.simon.dankelmann.bluetoothlespam.ui.theme.SpecterShapes
 import de.simon.dankelmann.bluetoothlespam.ui.theme.SpecterTopAppBarClearance
+import de.simon.dankelmann.bluetoothlespam.ui.theme.TerminalPanel
 import de.simon.dankelmann.bluetoothlespam.ui.theme.ThemeModeOption
 import de.simon.dankelmann.bluetoothlespam.ui.theme.ThemeModePicker
 import de.simon.dankelmann.bluetoothlespam.ui.theme.ThemeSwatchPicker
@@ -119,17 +123,18 @@ fun PreferencesScreen(
             )
         }
         item {
-            Card(modifier = Modifier.fillMaxWidth()) {
+            TerminalPanel {
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
+                    modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(
                         painter = painterResource(R.drawable.ic_settings_duration),
                         contentDescription = null,
-                        modifier = Modifier.size(28.dp),
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier
+                            .padding(end = 16.dp)
+                            .size(28.dp),
                     )
                     OutlinedTextField(
                         value = advertisingIntervalMs,
@@ -140,9 +145,7 @@ fun PreferencesScreen(
                         label = { Text("Advertisement Duration (ms)") },
                         supportingText = { Text("Recommended: 1000 - 10000") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(start = 16.dp),
+                        modifier = Modifier.fillMaxWidth(),
                     )
                 }
             }
@@ -187,12 +190,17 @@ fun PreferencesScreen(
 
 @Composable
 private fun SectionHeader(title: String) {
+    val cs = MaterialTheme.colorScheme
     Text(
-        text = title,
-        style = MaterialTheme.typography.titleSmall,
-        fontWeight = FontWeight.Bold,
-        color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.padding(top = 8.dp),
+        text = "> ${title.uppercase()}",
+        style = MaterialTheme.typography.labelLarge,
+        color = cs.primary,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 8.dp)
+            .background(cs.surfaceContainerHigh, SpecterShapes.medium)
+            .border(1.dp, cs.outline, SpecterShapes.medium)
+            .padding(horizontal = 12.dp, vertical = 8.dp),
     )
 }
 
@@ -204,21 +212,17 @@ private fun SwitchRow(
     onCheckedChange: (Boolean) -> Unit,
     icon: Painter? = null,
 ) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onCheckedChange(!checked) },
-    ) {
+    val cs = MaterialTheme.colorScheme
+    TerminalPanel(modifier = Modifier.clickable { onCheckedChange(!checked) }) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
+            modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             if (icon != null) {
                 Icon(
                     painter = icon,
                     contentDescription = null,
+                    tint = cs.primary,
                     // padding BEFORE size: chaining size().padding() would fix the outer box at
                     // 28dp and then let padding eat into that same box from the inside, shrinking
                     // the rendered icon to ~12dp -- this order applies the gap outside the icon.
@@ -229,7 +233,7 @@ private fun SwitchRow(
             }
             Column(modifier = Modifier.weight(1f)) {
                 Text(text = title, style = MaterialTheme.typography.titleMedium)
-                Text(text = summary, style = MaterialTheme.typography.bodySmall)
+                Text(text = summary, style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
             }
             Switch(checked = checked, onCheckedChange = onCheckedChange)
         }
@@ -238,21 +242,17 @@ private fun SwitchRow(
 
 @Composable
 private fun ClickRow(title: String, onClick: () -> Unit, iconRes: Int? = null) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
-    ) {
+    val cs = MaterialTheme.colorScheme
+    TerminalPanel(modifier = Modifier.clickable(onClick = onClick)) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
+            modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             if (iconRes != null) {
                 Icon(
                     painter = painterResource(iconRes),
                     contentDescription = null,
+                    tint = cs.primary,
                     // padding BEFORE size: chaining size().padding() would fix the outer box at
                     // 28dp and then let padding eat into that same box from the inside, shrinking
                     // the rendered icon to ~12dp -- this order applies the gap outside the icon.
@@ -261,7 +261,8 @@ private fun ClickRow(title: String, onClick: () -> Unit, iconRes: Int? = null) {
                         .size(28.dp),
                 )
             }
-            Text(text = title, style = MaterialTheme.typography.titleMedium)
+            Text(text = title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+            Text(text = ">", style = MaterialTheme.typography.titleMedium, color = cs.primary)
         }
     }
 }
