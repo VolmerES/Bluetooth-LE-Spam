@@ -8,6 +8,22 @@ This project uses the built-in Bluetooth Low Energy (BLE) functionality built in
 to create Phantom Bluetooth Device Advertisements, similar to what is known, for instance, in the case of the Flipper Zero.
 While other apps are available that provide similar functionality, the objective of this app is to enhance convenience and user-friendliness in the process.
 
+> ### This is the VolmerES fork
+>
+> A fork of [simondankelmann/Bluetooth-LE-Spam](https://github.com/simondankelmann/Bluetooth-LE-Spam).
+> **What the app does is unchanged**; this fork only reworks the interface and makes the existing
+> features quicker to reach. It adds no new broadcast capability — see
+> [`README_FORK.md`](README_FORK.md) for the detail. In short:
+>
+> - **Amber-CRT terminal theme** across the whole app (Info, Advertise, Spam Detector, Preferences and
+>   the navigation bar), with Material You off by default.
+> - A **Quick Settings tile** and a **home-screen widget** that start/stop the collection you have
+>   already loaded, without opening the app.
+> - Test builds are published under [Releases](https://github.com/VolmerES/Bluetooth-LE-Spam/releases)
+>   (signed with a debug key — uninstall any other build first).
+>
+> Everything below is the original project's README.
+
 #### [For Support, Join the Discord Server](https://discord.gg/x4e4Gma585)
 
 > [!NOTE]
